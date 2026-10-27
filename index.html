@@ -478,7 +478,7 @@ $('totIn').onclick=()=>{setFilterType(filterType==='in'?'':'in');document.queryS
 $('totOut').onclick=()=>{setFilterType(filterType==='out'?'':'out');document.querySelector('#txList').scrollIntoView({behavior:'smooth'})};
 document.querySelectorAll('#fChips button').forEach(b=>b.onclick=()=>{haptic();setFilterType(b.dataset.ft)});
 ['q','fType','fCat','fWallet'].forEach(id=>$(id).addEventListener('input',renderAll));
-function setMonth(mk){curMonth=mk;$('mPick').value=mk;ensureRecurring(mk);save();renderAll()}
+function setMonth(mk){curMonth=mk;$('mPick').value=mk;renderAll()}
 $('mPrev').onclick=()=>{const d=new Date(curMonth+'-02');d.setMonth(d.getMonth()-1);setMonth(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))};
 $('mNext').onclick=()=>{const d=new Date(curMonth+'-02');d.setMonth(d.getMonth()+1);setMonth(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))};
 $('mPick').onchange=()=>setMonth($('mPick').value);
