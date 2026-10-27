@@ -92,7 +92,7 @@ label{font-size:13px;color:var(--mut);display:block;margin:10px 0 4px}
 <div class="big" id="balBig">0 ¥</div>
 <div class="small" id="balVnd"></div>
 <div class="small" id="balDetail"></div>
-<div class="row" style="margin-top:8px"><span class="small">Tỷ giá 1¥ = <b id="rateTxt">168</b>₫</span><button id="btnRate" class="mini" style="min-height:44px">Sửa tỷ giá</button></div>
+<div class="row" style="margin-top:8px"><span class="small">Tỷ giá 1¥ = <b id="rateTxt">168</b>₫</span><button id="btnRate" class="mini" style="min-height:44px">Sửa tỷ giá</button><button id="btnRateAuto" class="mini" style="min-height:44px">Tự động</button></div> <div class="small" id="rateMeta" style="margin-top:4px;color:var(--mut)"></div>
 </section>
 
 <section class="wallets" id="wallets"></section>
@@ -253,12 +253,14 @@ function ensureRecurring(mk){if(!mk)return 0;let added=0;rebuildTemplates();
   S.txs.push({id,date:mk+'-'+tpl.day,type:tpl.type,cat:tpl.cat,amount:tpl.amount,wallet:tpl.wallet,note:tpl.note,isRecurring:true,templateId:tpl.id});added++}
  return added}
 function cleanDup(){const seen={},before=S.txs.length;S.txs=S.txs.filter(x=>{const k=monthKey(x.date)+'|'+sig(x)+'|'+(x.isRecurring?'R':'');if(x.isRecurring&&seen[k])return false;seen[k]=1;return true});return before-S.txs.length}
+let rateBusy=false;
+function fetchRate(force){if(!S||rateBusy)return;if(S.rateAuto===false&&!force)return;rateBusy=true;const done=(vnd,at)=>{rateBusy=false;if(!vnd||!(vnd>0))return;S.rate=Math.round(vnd*100)/100;S.rateAt=at||new Date().toISOString();S.rateSrc='ExchangeRate-API';save();renderAll()};fetch('https://open.er-api.com/v6/latest/JPY').then(r=>r.json()).then(d=>{if(d&&d.rates&&d.rates.VND)done(d.rates.VND,d.time_last_update_utc);else throw 0}).catch(()=>{fetch('https://api.exchangerate-api.com/v4/latest/JPY').then(r=>r.json()).then(d=>{if(d&&d.rates&&d.rates.VND)done(d.rates.VND,d.date);else rateBusy=false}).catch(()=>{rateBusy=false})})}
 function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
  $('saveState').textContent='☁️ Đã lưu trên máy này';
  if(TG&&TG.CloudStorage){try{const str=JSON.stringify(S);const chunks=[];for(let i=0;i<str.length;i+=3400)chunks.push(str.slice(i,i+3400));
   TG.CloudStorage.setItem('ct_meta',String(chunks.length),()=>{chunks.forEach((c,i)=>TG.CloudStorage.setItem('ct_'+i,c,()=>{}));$('saveState').textContent='☁️ Đã đồng bộ Telegram Cloud'})}catch(e){}}}
 function load(){try{const raw=localStorage.getItem(LS);if(raw){S=JSON.parse(raw);return}}catch(e){}
- if(TG&&TG.CloudStorage){TG.CloudStorage.getItem('ct_meta',(err,v)=>{if(!err&&v){const n=parseInt(v);const keys=Array.from({length:n},(_,i)=>'ct_'+i);TG.CloudStorage.getItems(keys,(e2,vals)=>{if(!e2&&vals){try{S=JSON.parse(keys.map(k=>vals[k]||'').join(''));renderAll();save()}catch(e3){}}})}})}
+ if(TG&&TG.CloudStorage){TG.CloudStorage.getItem('ct_meta',(err,v)=>{if(!err&&v){const n=parseInt(v);const keys=Array.from({length:n},(_,i)=>'ct_'+i);TG.CloudStorage.getItems(keys,(e2,vals)=>{if(!e2&&vals){try{S=JSON.parse(keys.map(k=>vals[k]||'').join(''));renderAll();save();fetchRate()}catch(e3){}}})}})}
  S=sampleData();rebuildTemplates();save()}
 </script>
 <script>
@@ -270,9 +272,9 @@ function calc(){let prior=0,curIn=0,curOut=0;const per={husband:0,wife:0,common:
  return{prior,curIn,curOut,balance:prior+curIn-curOut,per}}
 function renderAll(){if(!S)return;const c=calc();
  $('balBig').textContent=fmt(c.balance);
- $('balVnd').textContent=hideAmt?'':('≈ '+(c.balance*S.rate).toLocaleString('vi-VN')+' ₫');
+ $('balVnd').textContent=hideAmt?'':('≈ '+Math.round(c.balance*S.rate).toLocaleString('vi-VN')+' ₫');
  $('balDetail').textContent='Dư đầu tháng: '+fmt(c.prior)+' · Thặng dư tháng này: '+fmtSign(c.curIn-c.curOut);
- $('rateTxt').textContent=S.rate;
+ $('rateTxt').textContent=(+S.rate%1)?(+S.rate).toFixed(2):S.rate;const rm=$('rateMeta');if(rm){if(S.rateAuto===false)rm.textContent='Tỷ giá đang đặt tay — bấm “Tự động” để app tự cập nhật theo thị trường.';else if(S.rateAt){let at=S.rateAt;try{at=new Date(S.rateAt).toLocaleString('vi-VN',{timeZone:'Asia/Tokyo'})}catch(e){}rm.textContent='Tự động · nguồn '+(S.rateSrc||'ExchangeRate-API')+' · cập nhật '+at}else rm.textContent='Đang tải tỷ giá mới nhất…'}
  $('wallets').innerHTML=Object.keys(WALLETS).map(w=>{let wi=0,wo=0;S.txs.filter(x=>monthKey(x.date)===curMonth).forEach(x=>{if(x.type!=='transfer'&&x.wallet===w){if(x.type==='in')wi+=x.amount;else wo+=x.amount}});return '<button class="wallet glass'+(filterWallet===w?' on':'')+'" data-w="'+w+'"><b>'+WALLETS[w]+'</b><div class="amt">'+fmt(c.per[w])+'</div><div class="sm">Thu '+fmt(wi)+' · Chi '+fmt(wo)+'</div>'+(filterWallet===w?'<div class="sm">Đang lọc — chạm lại để bỏ</div>':'')+'</button>'}).join('');
  document.querySelectorAll('.wallet').forEach(b=>b.onclick=()=>{filterWallet=filterWallet===b.dataset.w?'':b.dataset.w;haptic();renderAll()});
  $('sumIn').textContent=fmtSign(c.curIn);$('sumOut').textContent=fmtSign(-c.curOut);
@@ -315,7 +317,7 @@ function renderNisa(){$('nisaT').value=S.nisa.t||0;$('nisaG').value=S.nisa.g||0;
  $('goals').innerHTML=S.goals.map(g=>{const p=Math.min(100,Math.round((g.saved||0)/Math.max(1,g.target)*100));return '<div style="margin-top:8px"><div class="row"><div class="grow"><b>'+escapeHtml(g.name)+'</b> — '+fmt(g.saved||0)+' / '+fmt(g.target)+' ('+p+'%)</div><button class="mini" data-gadd="'+g.id+'">+ Tiền</button><button class="mini" data-gdel="'+g.id+'">Xóa</button></div><div class="bar"><i style="width:'+p+'%"></i></div></div>'}).join('')||'<p style="color:var(--mut)">Chưa có mục tiêu.</p>';
  document.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=()=>{S.goals=S.goals.filter(g=>g.id!==b.dataset.gdel);save();renderAll()});
  document.querySelectorAll('[data-gadd]').forEach(b=>b.onclick=()=>{simple('Thêm tiền vào mục tiêu','<label>Số tiền (¥)</label><input id="smInput" type="number" inputmode="numeric">',v=>{const g=S.goals.find(x=>x.id===b.dataset.gadd);if(g){g.saved=(g.saved||0)+Math.abs(parseInt(v)||0);save();renderAll()}})})}
-function renderReport(c){$('report').innerHTML='<div><b>Tháng '+curMonth+'</b> · Thu: <span class="pos">'+fmt(c.curIn)+'</span> · Chi: <span class="neg">'+fmt(c.curOut)+'</span> · Dư cuối kỳ: <b>'+fmt(c.balance)+'</b> (≈ '+(c.balance*S.rate).toLocaleString('vi-VN')+' ₫)</div>'}
+function renderReport(c){$('report').innerHTML='<div><b>Tháng '+curMonth+'</b> · Thu: <span class="pos">'+fmt(c.curIn)+'</span> · Chi: <span class="neg">'+fmt(c.curOut)+'</span> · Dư cuối kỳ: <b>'+fmt(c.balance)+'</b> (≈ '+Math.round(c.balance*S.rate).toLocaleString('vi-VN')+' ₫)</div>'}
 function openSheet(id){$(id).classList.add('open');if(TG&&TG.BackButton){TG.BackButton.show();TG.BackButton.onClick(closeSheets)}}
 function closeSheets(){document.querySelectorAll('.sheetwrap').forEach(s=>s.classList.remove('open'));if(TG&&TG.BackButton)TG.BackButton.hide()}
 document.querySelectorAll('.sheetwrap').forEach(w=>w.addEventListener('click',e=>{if(e.target===w)closeSheets()}));
@@ -358,12 +360,13 @@ $('rcSave').onclick=()=>{if(submitting)return;let n=0;submitting=true;setTimeout
  save();closeSheets();haptic('medium');toast('Đã thêm '+n+' mục vào sổ');renderAll()};
 $('btnSync').onclick=()=>{const dup=cleanDup();const added=ensureRecurring(curMonth);save();renderAll();toast('Đồng bộ xong: thêm '+added+' khoản thiếu, xóa '+dup+' bản trùng')};
 $('btnHide').onclick=()=>{hideAmt=!hideAmt;$('btnHide').textContent=hideAmt?'👁 Hiện':'👁 Ẩn';renderAll()};
-$('btnRate').onclick=()=>simple('Sửa tỷ giá','<label>1¥ = bao nhiêu ₫?</label><input id="smInput" type="number" inputmode="numeric" value="'+S.rate+'">',v=>{const r=parseInt(v);if(r>0){S.rate=r;save();renderAll()}});
+$('btnRate').onclick=()=>simple('Sửa tỷ giá','<label>1¥ = bao nhiêu ₫? (nhập số = đặt tay, app ngừng tự cập nhật)</label><input id="smInput" type="number" step="0.01" inputmode="decimal" value="'+S.rate+'">',v=>{const r=parseFloat(v);if(r>0){S.rate=r;S.rateAuto=false;S.rateAt=null;save();renderAll();toast('Đã đặt tỷ giá tay: 1¥ = '+r+'₫')}});
+$('btnRateAuto').onclick=()=>{S.rateAuto=true;save();renderAll();fetchRate(true);toast('Đã bật tỷ giá tự động')};
 $('btnBudget').onclick=()=>simple('Ngân sách tháng '+curMonth,'<label>Hạn mức chi (¥)</label><input id="smInput" type="number" inputmode="numeric" value="'+(S.budgets[curMonth]||'')+'">',v=>{S.budgets[curMonth]=Math.abs(parseInt(v)||0);save();renderAll()});
 $('btnBackup').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='sothuchi360-backup.json';a.click();toast('Đã tải file sao lưu JSON')};
 $('btnRestore').onclick=()=>$('fileRestore').click();
 function convertGemini(d){const CM={salary:'salary',side_job:'baito',other_inc:'otherin',food:'food',housing:'rent',bills:'bills',transport:'transport',shopping:'shopping',health:'health',education:'kids',other_exp:'other'};const TM={income:'in',expense:'out'};const W='husband';const tpls=(d.recurringItems||[]).map(r=>({id:r.id,type:TM[r.type]||'out',cat:CM[r.category]||'other',amount:r.amount,wallet:W,note:r.note||'',day:String(parseInt(r.day)||1).padStart(2,'0')}));const byId={},bySig={};tpls.forEach(t=>{byId[t.id]=t;bySig[t.type+'|'+t.cat+'|'+t.amount]=t});const txs=(d.transactions||[]).map(t=>{const ty=TM[t.type]||'out',cat=CM[t.category]||'other';let tpl=null;if(t.isRecurring){tpl=byId[t.recurringId]||bySig[ty+'|'+cat+'|'+t.amount]||null}return{id:t.id,date:t.date,type:ty,cat:cat,amount:t.amount,wallet:W,note:t.note||'',isRecurring:!!t.isRecurring,templateId:tpl?tpl.id:null,sample:false}});return{txs:txs,templates:tpls,suppressed:[],budgets:(d.monthlyBudgets&&typeof d.monthlyBudgets==='object')?d.monthlyBudgets:{},rate:parseInt(d.exchangeRateJPYtoVND)||168,nisa:{t:0,g:0},goals:[]}}
-$('fileRestore').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(d&&Array.isArray(d.transactions))d=convertGemini(d);if(!d||!Array.isArray(d.txs))throw 0;S=d;save();renderAll();toast('Đã khôi phục dữ liệu')}catch(x){toast('File không hợp lệ')}};r.readAsText(f)};
+$('fileRestore').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(d&&Array.isArray(d.transactions))d=convertGemini(d);if(!d||!Array.isArray(d.txs))throw 0;S=d;save();renderAll();fetchRate();toast('Đã khôi phục dữ liệu')}catch(x){toast('File không hợp lệ')}};r.readAsText(f)};
 $('btnClearSample').onclick=()=>{if(!confirm('Xóa toàn bộ dữ liệu mẫu?'))return;S.txs=S.txs.filter(x=>!x.sample);S.goals=S.goals.filter(g=>!g.sample);rebuildTemplates();save();renderAll();toast('Đã xóa dữ liệu mẫu')};
 $('btnNisa').onclick=()=>{S.nisa.t=Math.abs(parseInt($('nisaT').value)||0);S.nisa.g=Math.abs(parseInt($('nisaG').value)||0);save();renderAll();toast('Đã cập nhật NISA')};
 $('btnGoal').onclick=()=>{const n=$('goalName').value.trim(),t=Math.abs(parseInt($('goalTarget').value)||0);if(!n||!t){toast('Nhập tên và số tiền mục tiêu');return}S.goals.push({id:uid('g'),name:n,target:t,saved:0});save();renderAll()};
@@ -379,7 +382,7 @@ let lastQuick=0;
 document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const now=Date.now();if(now-lastQuick<700)return;lastQuick=now;const q=QUICK[+b.dataset.q];S.txs.push({id:uid('t'),date:todayStr(),type:'out',cat:q[2],amount:q[1],wallet:'husband',note:q[0]});save();haptic();toast('Đã ghi nhanh: '+q[0]+' '+q[1]+'¥');renderAll()});
 $('fCat').innerHTML='<option value="">Tất cả danh mục</option>'+OUT_CATS.concat(IN_CATS).map(c=>'<option value="'+c[0]+'">'+c[1]+'</option>').join('')+'<option value="transfer">⇄ Chuyển ví</option>';
 rcRow();rcRow();
-(function init(){const now=new Date();curMonth=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');$('mPick').value=curMonth;$('txDate').value=todayStr();$('rcDate').value=todayStr();load();ensureRecurring(curMonth);renderAll()})();
+(function init(){const now=new Date();curMonth=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');$('mPick').value=curMonth;$('txDate').value=todayStr();$('rcDate').value=todayStr();load();ensureRecurring(curMonth);renderAll();fetchRate()})();
 </script>
 </body>
 </html>
