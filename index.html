@@ -107,20 +107,20 @@ details.card summary{font-size:17px;font-weight:700;cursor:pointer;padding:2px 0
 .sheetClose{position:absolute;top:10px;right:12px;min-height:38px;width:38px;border-radius:50%;padding:0;font-size:15px;z-index:2;line-height:1}
 .dock button small{font-size:11px}
 @media (max-width:380px){.wallet .amt{font-size:14px}.balance .big{font-size:29px}}
-.repHead{background:linear-gradient(135deg,rgba(10,38,30,.92),rgba(16,74,58,.88));color:#eafff5;border-radius:26px;padding:18px;border:1px solid rgba(255,255,255,.25)}
-.repHead .k{font-size:11px;letter-spacing:.06em;opacity:.8}
-.repHead .t{font-size:13px;opacity:.9;margin-top:2px}
-.repHead .big{font-size:32px;font-weight:800;margin-top:2px}
+.repHead{background-color:#0d3b2c;background:linear-gradient(135deg,#0a2e23,#14503c);color:#eafff5;border-radius:26px;padding:18px;border:1px solid #0a2e23}
+.repHead .k{font-size:11px;letter-spacing:.06em;color:#bfe9d6}
+.repHead .t{font-size:13px;color:#d9f5e7;margin-top:2px}
+.repHead .big{font-size:32px;font-weight:800;margin-top:2px;color:#ffffff}
 .repGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.repBox{padding:12px 14px;border-radius:20px}
-.repBox .k{font-size:12px;color:var(--mut)}
-.repBox .v{font-size:17px;font-weight:800;margin-top:2px}
-.repSec{font-size:15px;font-weight:700;margin:18px 0 6px}
-.repRow{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;margin-top:8px}
-.repRow .nm{flex:1;font-size:14px;overflow-wrap:anywhere}
-.repRow .vl{font-weight:800;white-space:nowrap}
+.repBox{padding:12px 14px;border-radius:20px;background:#ffffff;border:1px solid rgba(18,32,27,.10)}
+.repBox .k{font-size:12px;color:#5c6f66}
+.repBox .v{font-size:17px;font-weight:800;margin-top:2px;color:#12211b}
+.repSec{font-size:15px;font-weight:700;margin:18px 0 6px;color:#12211b}
+.repRow{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;margin-top:8px;background:#ffffff;border:1px solid rgba(18,32,27,.10)}
+.repRow .nm{flex:1;font-size:14px;overflow-wrap:anywhere;color:#22312b}
+.repRow .vl{font-weight:800;white-space:nowrap;color:#12211b}
 .repDot{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
-.repNote{font-size:13px;color:var(--mut);margin-top:6px}
+.repNote{font-size:13px;color:#5c6f66;margin-top:6px}
 </style>
 </head>
 <body>
@@ -400,14 +400,14 @@ function renderNisa(){const limT=S.nisa.tLim||1200000,limG=S.nisa.gLim||2400000;
 function renderReport(c){const [yy,mm]=curMonth.split('-').map(Number);const mLabel='THÁNG '+mm+'/'+yy;
  const perW={husband:0,wife:0,common:0};for(const x of S.txs){if(monthKey(x.date)<=curMonth)for(const w in perW)perW[w]+=walletDelta(x,w)}
  const byCat={};for(const x of S.txs){if(monthKey(x.date)===curMonth&&x.type==='out')byCat[x.cat]=(byCat[x.cat]||0)+x.amount}
- const catRows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{const cm=CATMAP[k]||['','📦 '+k,'#868e96'];const nm=cm[1].replace(/^\S+\s+/,'');return '<div class="repRow glass"><span class="repDot" style="background:'+cm[2]+'"></span><span class="nm">'+nm+'</span><span class="vl">'+fmt(v)+'</span></div>'}).join('');
+ const catRows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{const cm=CATMAP[k]||['','📦 '+k,'#868e96'];const nm=cm[1].replace(/^\S+\s+/,'');return '<div class="repRow"><span class="repDot" style="background:'+cm[2]+'"></span><span class="nm">'+nm+'</span><span class="vl">'+fmt(v)+'</span></div>'}).join('');
  const daysIn=new Date(yy,mm,0).getDate();const nowD=new Date();const isCur=curMonth===(nowD.getFullYear()+'-'+String(nowD.getMonth()+1).padStart(2,'0'));const elapsed=isCur?nowD.getDate():daysIn;const perDay=elapsed>0?c.curOut/elapsed:0;const projOut=Math.round(perDay*daysIn);const projBal=Math.round(c.balance-perDay*Math.max(0,daysIn-elapsed));
  $('report').innerHTML='<div class="repHead"><div class="k">SỔ THU CHI 360 · '+mLabel+'</div><div class="t">Số dư cuối kỳ</div><div class="big">'+(hideAmt?'••••':fmt(c.balance))+'</div></div>'
- +'<div class="repGrid"><div class="repBox glass"><div class="k">Dư đầu tháng</div><div class="v">'+(hideAmt?'••••':fmtSign(c.prior))+'</div></div><div class="repBox glass"><div class="k">Thặng dư</div><div class="v '+(c.curIn-c.curOut>=0?'pos':'neg')+'">'+(hideAmt?'••••':fmtSign(c.curIn-c.curOut))+'</div></div>'
- +'<div class="repBox glass"><div class="k">Tổng thu</div><div class="v pos">'+(hideAmt?'••••':fmt(c.curIn))+'</div></div><div class="repBox glass"><div class="k">Tổng chi</div><div class="v neg">'+(hideAmt?'••••':fmt(c.curOut))+'</div></div></div>'
- +'<div class="repSec">Theo ví</div>'+Object.keys(WALLETS).map(w=>'<div class="repRow glass"><span class="nm">'+WALLETS[w]+'</span><span class="vl">'+(hideAmt?'••••':fmt(perW[w]))+'</span></div>').join('')
+ +'<div class="repGrid"><div class="repBox"><div class="k">Dư đầu tháng</div><div class="v">'+(hideAmt?'••••':fmtSign(c.prior))+'</div></div><div class="repBox"><div class="k">Thặng dư</div><div class="v '+(c.curIn-c.curOut>=0?'pos':'neg')+'">'+(hideAmt?'••••':fmtSign(c.curIn-c.curOut))+'</div></div>'
+ +'<div class="repBox"><div class="k">Tổng thu</div><div class="v pos">'+(hideAmt?'••••':fmt(c.curIn))+'</div></div><div class="repBox"><div class="k">Tổng chi</div><div class="v neg">'+(hideAmt?'••••':fmt(c.curOut))+'</div></div></div>'
+ +'<div class="repSec">Theo ví</div>'+Object.keys(WALLETS).map(w=>'<div class="repRow"><span class="nm">'+WALLETS[w]+'</span><span class="vl">'+(hideAmt?'••••':fmt(perW[w]))+'</span></div>').join('')
  +'<div class="repSec">Chi theo danh mục</div>'+(catRows||'<div class="repNote">Chưa có khoản chi trong tháng này.</div>')
- +'<div class="repSec">Dự báo cuối tháng này</div><div class="repRow glass"><span class="nm">Tốc độ chi trung bình</span><span class="vl">'+fmt(Math.round(perDay))+'/ngày</span></div><div class="repNote">Đã qua '+elapsed+'/'+daysIn+' ngày · Chi dự kiến cả tháng: <b>'+fmt(projOut)+'</b> · Số dư dự kiến cuối tháng: <b>'+fmt(projBal)+'</b></div>'}
+ +'<div class="repSec">Dự báo cuối tháng này</div><div class="repRow"><span class="nm">Tốc độ chi trung bình</span><span class="vl">'+fmt(Math.round(perDay))+'/ngày</span></div><div class="repNote">Đã qua '+elapsed+'/'+daysIn+' ngày · Chi dự kiến cả tháng: <b>'+fmt(projOut)+'</b> · Số dư dự kiến cuối tháng: <b>'+fmt(projBal)+'</b></div>'}
 function openSheet(id){$(id).classList.add('open');document.body.style.overflow='hidden';if(TG&&TG.BackButton){TG.BackButton.show();TG.BackButton.onClick(closeSheets)}}
 function closeSheets(){document.querySelectorAll('.sheetwrap').forEach(s=>s.classList.remove('open'));document.body.style.overflow='';if(TG&&TG.BackButton)TG.BackButton.hide()}
 document.querySelectorAll('.sheetwrap').forEach(w=>w.addEventListener('click',e=>{if(e.target===w)closeSheets()}));
